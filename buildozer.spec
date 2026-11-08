@@ -9,19 +9,22 @@ source.include_exts = py,png,jpg,kv,atlas,pdf
 
 version = 1.0.0
 
-requirements = python3,kivy==2.3.1
+# Kararlı sürümler sabitlendi: p4a'nın en yeni (master) hali Python 3.14 çekiyor ve
+# Kivy 2.3 ile derleme sırasında hata verebiliyor.
+requirements = python3,kivy==2.3.0
+p4a.branch = v2024.01.21
 
 orientation = portrait
 fullscreen = 0
 
-# Google Play, 31 Ağustos 2026'dan beri yeni uygulamalar için API 36 hedefi istiyor.
-# Derleme API 36'da hata verirse test için 35'e düşürebilirsin (Play'e yüklemek için 36 gerekir).
-android.api = 36
+android.api = 33
 android.minapi = 24
-android.archs = arm64-v8a, armeabi-v7a
+android.ndk = 25b
+android.ndk_api = 24
+# Test APK'sı için yalnızca 64-bit (güncel telefonların hepsi): derleme süresi yarıya iner.
+android.archs = arm64-v8a
 android.accept_sdk_license = True
 
-# Play Store'a yüklenecek dosya türü: AAB (test için debug'da APK üretilir)
 android.release_artifact = aab
 android.debug_artifact = apk
 
