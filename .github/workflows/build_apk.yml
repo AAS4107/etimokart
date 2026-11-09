@@ -31,7 +31,6 @@ jobs:
           pip install --upgrade pip
           pip install git+https://github.com/kivy/buildozer "cython==0.29.37"
 
-      # 1) Test için debug APK (imzasız sorun çıkarmaz, telefona doğrudan kurulur)
       - name: Debug APK derle
         run: buildozer -v android debug
 
@@ -41,12 +40,38 @@ jobs:
           name: etimokart-apk
           path: bin/*.apk
 
-      # 2) Play Store için imzalı AAB
-      - name: Keystore hazırla
+      - name: Keystore hazırla ve doğrula
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          set -euo pipefail
+
+          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "Missing release signing secrets" >&2
+            exit 1
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+
+          if ! printf '%s' "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"; then
+            echo "KEYSTORE_BASE64 is not valid base64" >&2
+            exit 1
+          fi
+
+          if [ ! -s "$KEYSTORE_PATH" ]; then
+            echo "Decoded release keystore is empty" >&2
+            exit 1
+          fi
+
+          if ! keytool -list \
+            -keystore "$KEYSTORE_PATH" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" > /dev/null 2>&1; then
+            echo "Keystore is invalid, password is wrong, or alias does not exist" >&2
+            exit 1
+          fi
 
       - name: Release AAB derle
         env:
