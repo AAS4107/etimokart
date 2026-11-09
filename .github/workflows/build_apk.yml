@@ -1,4 +1,4 @@
-name: APK derle
+name: Android derle (APK + AAB)
 
 on:
   workflow_dispatch:
@@ -29,16 +29,37 @@ jobs:
       - name: Buildozer kurulumu
         run: |
           pip install --upgrade pip
-          pip install buildozer "cython==0.29.37"
+          pip install git+https://github.com/kivy/buildozer "cython==0.29.37"
 
+      # 1) Test için debug APK (imzasız sorun çıkarmaz, telefona doğrudan kurulur)
       - name: Debug APK derle
-        run: |
-          # Test APK'sı için API 35 daha güvenli; Play Store sürümü (AAB) için 36 kullan.
-          sed -i 's/^android.api = 36/android.api = 35/' buildozer.spec
-          buildozer -v android debug
+        run: buildozer -v android debug
 
       - name: APK'yı yükle
         uses: actions/upload-artifact@v4
         with:
           name: etimokart-apk
           path: bin/*.apk
+
+      # 2) Play Store için imzalı AAB
+      - name: Keystore hazırla
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Release AAB derle
+        env:
+          P4A_RELEASE_KEYSTORE: ${{ runner.temp }}/release.keystore
+          P4A_RELEASE_KEYALIAS: ${{ secrets.KEY_ALIAS }}
+          P4A_RELEASE_KEYSTORE_PASSWD: ${{ secrets.KEYSTORE_PASSWORD }}
+          P4A_RELEASE_KEYALIAS_PASSWD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          rm -f bin/*.apk
+          buildozer -v android release
+
+      - name: AAB'yi yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: etimokart-aab
+          path: bin/*.aab
