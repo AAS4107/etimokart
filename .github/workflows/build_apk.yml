@@ -1,90 +1,48 @@
-name: Android derle (APK + AAB)
-
+# Konum: depoda  .github/workflows/build.yml
+name: Etimokart derle (APK / AAB)
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
+    inputs:
+      tur:
+        description: "Ne derlensin?"
+        type: choice
+        options: [apk, aab]
+        default: apk
 
 jobs:
-  build:
-    runs-on: ubuntu-22.04
+  apk:
+    if: ${{ inputs.tur == 'apk' }}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - name: Buildozer ile APK derle (test için)
+        uses: ArtemSBulgakov/buildozer-action@v1
         with:
-          python-version: "3.11"
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Sistem paketleri
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf automake libtool pkg-config \
-            zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
-
-      - name: Buildozer kurulumu
-        run: |
-          pip install --upgrade pip
-          pip install git+https://github.com/kivy/buildozer "cython==0.29.37"
-
-      - name: Debug APK derle
-        run: buildozer -v android debug
-
-      - name: APK'yı yükle
-        uses: actions/upload-artifact@v4
+          command: buildozer android debug
+          buildozer_version: stable
+      - uses: actions/upload-artifact@v4
         with:
           name: etimokart-apk
           path: bin/*.apk
 
-      - name: Keystore hazırla ve doğrula
+  aab:
+    if: ${{ inputs.tur == 'aab' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Anahtar dosyasını (keystore) hazırla
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+      - name: Buildozer ile imzalı AAB derle (Google Play için)
+        uses: ArtemSBulgakov/buildozer-action@v1
         env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "$KEYSTORE_B64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
-            echo "Missing release signing secrets" >&2
-            exit 1
-          fi
-
-          KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
-
-          if ! printf '%s' "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"; then
-            echo "KEYSTORE_BASE64 is not valid base64" >&2
-            exit 1
-          fi
-
-          if [ ! -s "$KEYSTORE_PATH" ]; then
-            echo "Decoded release keystore is empty" >&2
-            exit 1
-          fi
-
-          if ! keytool -list \
-            -keystore "$KEYSTORE_PATH" \
-            -storepass "$KEYSTORE_PASSWORD" \
-            -alias "$KEY_ALIAS" > /dev/null 2>&1; then
-            echo "Keystore is invalid, password is wrong, or alias does not exist" >&2
-            exit 1
-          fi
-
-      - name: Release AAB derle
-        env:
-          P4A_RELEASE_KEYSTORE: ${{ runner.temp }}/release.keystore
-          P4A_RELEASE_KEYALIAS: ${{ secrets.KEY_ALIAS }}
+          P4A_RELEASE_KEYSTORE: /github/workspace/release.keystore
           P4A_RELEASE_KEYSTORE_PASSWD: ${{ secrets.KEYSTORE_PASSWORD }}
+          P4A_RELEASE_KEYALIAS: ${{ secrets.KEY_ALIAS }}
           P4A_RELEASE_KEYALIAS_PASSWD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          rm -f bin/*.apk
-          buildozer -v android release
-
-      - name: AAB'yi yükle
-        uses: actions/upload-artifact@v4
+        with:
+          command: buildozer android release
+          buildozer_version: stable
+      - uses: actions/upload-artifact@v4
         with:
           name: etimokart-aab
           path: bin/*.aab
