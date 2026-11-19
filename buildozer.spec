@@ -9,12 +9,11 @@ requirements = python3,kivy==2.3.0,certifi,openssl
 orientation = portrait
 fullscreen = 0
 android.permissions = INTERNET
-android.api = 36
-android.minapi = 21
-android.archs = arm64-v8a, armeabi-v7a
+android.api = 34
+android.minapi = 24
+android.archs = arm64-v8a
 android.accept_sdk_license = True
 android.release_artifact = aab
-p4a.branch = develop
 
 [buildozer]
 log_level = 2
